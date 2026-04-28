@@ -11,6 +11,10 @@ on:
 jobs:
   sync-context:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     # 只在 PR 被 merge 时触发，不在普通关闭时触发
     if: |
       github.event_name == 'milestone' ||

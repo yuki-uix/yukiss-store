@@ -1,1 +1,13 @@
 .idea/
+
+# 依赖
+node_modules/
+
+# 本地密钥与配置（勿提交）
+.env
+.env.*
+!.env.example
+
+# 本地密钥文件
+*.pem
+secrets/

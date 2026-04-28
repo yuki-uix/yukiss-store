@@ -1,0 +1,78 @@
+name: Context Sync Agent
+
+on:
+  milestone:
+    types: [closed]
+  issues:
+    types: [closed]
+  pull_request:
+    types: [closed]
+
+jobs:
+  sync-context:
+    runs-on: ubuntu-latest
+    # 只在 PR 被 merge 时触发，不在普通关闭时触发
+    if: |
+      github.event_name == 'milestone' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'epic')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Context Detector
+        id: detector
+        run: node agents/detector.js
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PAYLOAD: ${{ toJSON(github.event) }}
+
+      - name: Run Context Writer
+        if: steps.detector.outputs.confidence >= 0.5 && steps.detector.outputs.has_drift == 'true'
+        id: writer
+        run: node agents/writer.js
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRIFT_REPORT: ${{ steps.detector.outputs.drift_report }}
+
+      - name: Run Context Reviewer
+        if: steps.writer.outputs.updated == 'true'
+        run: node agents/reviewer.js
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          UPDATED_CONTENT: ${{ steps.writer.outputs.content }}
+
+      - name: Open Issue for low confidence
+        if: steps.detector.outputs.confidence < 0.5 && steps.detector.outputs.has_drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[context-sync] 业务上下文需要人工确认',
+              body: `context-sync-agent 检测到业务上下文可能需要更新，但置信度较低（${process.env.CONFIDENCE}），请 BA 或 PM 确认。\n\n**检测报告：**\n\n${process.env.DRIFT_REPORT}`,
+              labels: ['context-sync', 'needs-review'],
+              assignees: []
+            });
+        env:
+          CONFIDENCE: ${{ steps.detector.outputs.confidence }}
+          DRIFT_REPORT: ${{ steps.detector.outputs.drift_report }}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200" role="img" aria-label="`M�">
+  <rect width="320" height="200" fill="#f3f0ea"/>
+  <rect x="72" y="40" width="176" height="120" rx="6" fill="#fff" stroke="#d4cdc2" stroke-width="2"/>
+  <text x="160" y="105" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#888">Yukiss</text>
+</svg>

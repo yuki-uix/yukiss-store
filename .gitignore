@@ -11,3 +11,9 @@ node_modules/
 # 本地密钥文件
 *.pem
 secrets/
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
